@@ -1,0 +1,6 @@
+id=k2tb_adblock
+name=AdBlock (System Toolbox)
+version=18.2
+versionCode=18200
+author=kgr-online
+description=Systemless-hosts ad blocking, managed via System Toolbox (based on gloeyisk/systemless-hosts)
