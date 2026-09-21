@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.kgr.systemtoolbox.core.RootShell
+import com.kgr.systemtoolbox.service.SystemAccessibilityService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -36,10 +37,12 @@ fun InfoScreen() {
     val context = LocalContext.current
 
     var rootOk by remember { mutableStateOf<Boolean?>(null) }
+    var a11yOk by remember { mutableStateOf(false) }
     var device by remember { mutableStateOf<List<Row>>(emptyList()) }
     var battery by remember { mutableStateOf<List<Row>>(emptyList()) }
 
     LaunchedEffect(Unit) {
+        a11yOk = SystemAccessibilityService.isRunning
         device = buildDeviceRows()
         battery = readBatteryRows(context)
         withContext(Dispatchers.IO) {
@@ -66,6 +69,11 @@ fun InfoScreen() {
                 "Root access",
                 when (rootOk) { null -> "Checking…"; true -> "Granted"; else -> "Not granted" },
                 when (rootOk) { null -> NEUTRAL; true -> OK; else -> BAD }
+            )
+            StatusRow(
+                "Accessibility service",
+                if (a11yOk) "Enabled" else "Disabled",
+                if (a11yOk) OK else BAD
             )
         }
 

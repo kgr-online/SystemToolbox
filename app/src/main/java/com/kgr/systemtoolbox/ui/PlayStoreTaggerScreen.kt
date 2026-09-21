@@ -2,6 +2,7 @@ package com.kgr.systemtoolbox.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,7 +17,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -182,21 +182,20 @@ private fun ReadyContent(
         singleLine = true
     )
 
-    // Filter chips + actions
+    // Filter chips + actions. Horizontally scrollable since the install-source
+    // options no longer fit on one line on most screens.
     Row(
+        modifier = Modifier.horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        FilterChip(
-            selected = state.filter == FilterMode.NON_PLAY,
-            onClick = { onFilterChange(FilterMode.NON_PLAY) },
-            label = { Text("Non-Play") }
-        )
-        FilterChip(
-            selected = state.filter == FilterMode.ALL,
-            onClick = { onFilterChange(FilterMode.ALL) },
-            label = { Text("All") }
-        )
+        FilterMode.entries.forEach { mode ->
+            FilterChip(
+                selected = state.filter == mode,
+                onClick = { onFilterChange(mode) },
+                label = { Text(mode.label) }
+            )
+        }
         FilterChip(
             selected = state.showSystem,
             onClick = onToggleSystem,
@@ -234,17 +233,27 @@ private fun ReadyContent(
         else when (state.filter) {
             FilterMode.NON_PLAY -> "All apps are already tagged as Play Store installed."
             FilterMode.ALL -> "No apps found."
+            FilterMode.PLAY_STORE -> "No apps tagged as Play Store installed."
+            FilterMode.FDROID -> "No apps installed via F-Droid."
+            FilterMode.AURORA -> "No apps installed via Aurora Store."
+            FilterMode.PACKAGE_INSTALLER -> "No manually/sideloaded-installed apps found."
         }
         Text(msg, color = MaterialTheme.colorScheme.onSurfaceVariant)
         return
     }
 
-    val listHeight = minOf(state.apps.size * 72, 600).dp
-    val listState = rememberLazyListState()
-
+    // Bounded-height scrollable sub-list: this list scrolls on its own once
+    // content exceeds the box, and once it hits its own top/bound, Compose's
+    // default nested-scroll dispatch hands remaining scroll delta up to the
+    // outer page's scroll (from ScreenScaffold) automatically - so dragging
+    // from inside the list scrolls the list first, then the page, same as
+    // reaching the page from outside the list. A fixed height (rather than
+    // one estimated from item count) avoids re-breaking this if a row's
+    // content ever changes size again.
     LazyColumn(
-        state = listState,
-        modifier = Modifier.height(listHeight),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(480.dp),
         contentPadding = PaddingValues(vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {

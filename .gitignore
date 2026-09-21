@@ -1,0 +1,27 @@
+# Gradle / build output
+.gradle/
+build/
+app/build/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Local config and secrets
+local.properties
+*.jks
+*.keystore
+keystore.properties
+
+# IDE
+.idea/
+*.iml
+
+# OS junk
+.DS_Store
+
+# Built artifacts
+*.apk
+*.aab
+*.ap_
+*.dex
+app/release/

@@ -3,10 +3,10 @@ package com.kgr.systemtoolbox.modules
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
-import android.os.Build
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kgr.systemtoolbox.core.RootShell
+import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -14,7 +14,23 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-enum class FilterMode { ALL, NON_PLAY }
+enum class FilterMode(val label: String) {
+    NON_PLAY("Non-Play"),
+    ALL("All"),
+    PLAY_STORE("Play Store"),
+    FDROID("F-Droid"),
+    AURORA("Aurora Store"),
+    PACKAGE_INSTALLER("Package Installer")
+}
+
+// "Manual install" covers both known Package Installer UI package names (varies
+// by AOSP/OEM flavor) and a null/empty installer, since `pm install` from ADB or
+// a root shell leaves the installer package unset - that's still effectively a
+// manual/sideloaded install, just without the Package Installer UI in the loop.
+private val PACKAGE_INSTALLER_PACKAGES = setOf(
+    "com.android.packageinstaller",
+    "com.google.android.packageinstaller"
+)
 enum class TagMode { TAG, UNTAG }
 
 sealed class TaggerUiState {
@@ -202,6 +218,13 @@ class PlayStoreTaggerViewModel : ViewModel() {
         list = when (currentFilter) {
             FilterMode.ALL -> list
             FilterMode.NON_PLAY -> list.filter { !it.isPlayInstalled }
+            FilterMode.PLAY_STORE -> list.filter { it.installerPackage == "com.android.vending" }
+            FilterMode.FDROID -> list.filter { it.installerPackage == "org.fdroid.fdroid" }
+            FilterMode.AURORA -> list.filter { it.installerPackage == "com.aurora.store" }
+            FilterMode.PACKAGE_INSTALLER -> list.filter {
+                it.installerPackage.isNullOrEmpty() ||
+                    it.installerPackage in PACKAGE_INSTALLER_PACKAGES
+            }
         }
         if (currentQuery.isNotEmpty()) {
             val q = currentQuery.lowercase()
@@ -214,33 +237,62 @@ class PlayStoreTaggerViewModel : ViewModel() {
 
     private fun loadApps(context: Context): List<AppInfo> {
         val pm = context.packageManager
-        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
-            PackageManager.ApplicationInfoFlags.of(PackageManager.GET_META_DATA.toLong())
-        else null
 
-        val packages = if (flags != null) pm.getInstalledApplications(flags)
-        else @Suppress("DEPRECATION") pm.getInstalledApplications(PackageManager.GET_META_DATA)
+        // Enumerate via a root `pm list packages` rather than
+        // PackageManager.getInstalledApplications(): on API 30+ (this app
+        // targets 34) that call is subject to package-visibility filtering,
+        // which can silently under-report installed packages even with
+        // QUERY_ALL_PACKAGES declared. A root `pm list packages` always
+        // matches exactly what `adb shell pm list packages` would show, so
+        // it can't miss anything that's actually installed.
+        val allResult = Shell.cmd("pm list packages").exec()
+        val systemResult = Shell.cmd("pm list packages -s").exec()
 
-        return packages
-            .filter { it.packageName != context.packageName }
-            .mapNotNull { appInfo ->
-                try {
-                    val label = pm.getApplicationLabel(appInfo).toString()
-                    val icon = pm.getApplicationIcon(appInfo)
-                    val isSystem = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
-                    val installer = try {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
-                            pm.getInstallSourceInfo(appInfo.packageName).installingPackageName
-                        else @Suppress("DEPRECATION") pm.getInstallerPackageName(appInfo.packageName)
-                    } catch (_: Exception) { null }
-                    AppInfo(
-                        packageName = appInfo.packageName,
-                        label = label,
-                        icon = icon,
-                        installerPackage = installer,
-                        isSystem = isSystem
-                    )
-                } catch (_: Exception) { null }
+        fun parseNames(lines: List<String>) = lines
+            .mapNotNull { it.removePrefix("package:").trim().takeIf(String::isNotEmpty) }
+
+        val systemPackages = parseNames(systemResult.out).toSet()
+        val packageNames = parseNames(allResult.out).filter { it != context.packageName }
+
+        // Read every installer in one root-shell pass rather than one
+        // PackageManager/root call per app. See PlayStoreTaggerManager.getAllInstallers
+        // for why the in-process PackageManager read (getInstallSourceInfo /
+        // getInstallerPackageName) isn't used here - it was confirmed to
+        // return incorrect/empty data on this ROM even when the equivalent
+        // root-shell read (`dumpsys package | grep installerPackageName=`)
+        // is correct. This was also the root cause of every app showing as
+        // "sideloaded" regardless of actual installer, and of the list not
+        // reflecting a tag after it completed.
+        val installers = PlayStoreTaggerManager.getAllInstallers()
+
+        return packageNames.mapNotNull { pkgName ->
+            val installer = installers[pkgName]
+
+            try {
+                val appInfo = pm.getApplicationInfo(pkgName, PackageManager.GET_META_DATA)
+                val label = pm.getApplicationLabel(appInfo).toString()
+                val icon = try { pm.getApplicationIcon(appInfo) } catch (_: Exception) { pm.defaultActivityIcon }
+                val isSystem = pkgName in systemPackages || (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+                AppInfo(
+                    packageName = pkgName,
+                    label = label,
+                    icon = icon,
+                    installerPackage = installer,
+                    isSystem = isSystem
+                )
+            } catch (e: PackageManager.NameNotFoundException) {
+                // PackageManager still won't resolve this package (rare - e.g. a
+                // package installed for a different user profile, or one mid-
+                // uninstall). Show it by package name rather than silently
+                // dropping it, since `pm list packages` did report it as present.
+                AppInfo(
+                    packageName = pkgName,
+                    label = pkgName,
+                    icon = pm.defaultActivityIcon,
+                    installerPackage = installer,
+                    isSystem = pkgName in systemPackages
+                )
             }
+        }
     }
 }

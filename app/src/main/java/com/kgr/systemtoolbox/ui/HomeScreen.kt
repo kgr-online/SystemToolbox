@@ -30,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
@@ -40,7 +41,9 @@ val systemScreens = listOf(
     Screen.DenylistManager,
     Screen.WirelessAdb,
     Screen.PlayStoreTagger,
-    Screen.Zram
+    Screen.Zram,
+    Screen.Toolbelt,
+    Screen.Recents,
 )
 
 @Composable
@@ -95,6 +98,8 @@ private fun DetailHost(screen: Screen, onBack: () -> Unit) {
         Screen.PlayStoreTagger -> PlayStoreTaggerScreen(onBack)
         Screen.AdBlock -> AdBlockScreen(onBack)
         Screen.DenylistManager -> DenylistScreen(onBack)
+        Screen.Toolbelt -> ToolbeltScreen(onBack)
+        Screen.Recents -> RecentsScreen(onBack)
         Screen.Home -> Unit
     }
 }
@@ -128,21 +133,30 @@ private fun MenuEntry(screen: Screen, onClick: () -> Unit) {
         ) {
             Text(screen.title, style = MaterialTheme.typography.titleMedium)
             if (screen.subtitle.isNotEmpty() || screen.access.isNotEmpty()) {
-                Row {
+                Row(verticalAlignment = Alignment.Top) {
                     if (screen.subtitle.isNotEmpty()) {
                         Text(
                             screen.subtitle,
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f)
                         )
+                    } else {
+                        Spacer(Modifier.weight(1f))
                     }
                     if (screen.access.isNotEmpty()) {
                         Spacer(Modifier.width(6.dp))
-                        Text(
-                            screen.access.joinToString(" ") { "[${it.label}]" },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            screen.access.forEach { at ->
+                                Text(
+                                    "[${at.label}]",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            }
+                        }
                     }
                 }
             }

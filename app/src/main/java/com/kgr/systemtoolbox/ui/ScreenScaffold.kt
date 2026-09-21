@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -43,4 +44,20 @@ fun ScreenScaffold(
 
         content()
     }
+}
+
+/**
+ * Subtle separator placed above a module's trailing description text, so it
+ * reads as disclaimer-like content rather than part of the controls above it.
+ * Deliberately carries no padding of its own - callers sit in containers that
+ * already space siblings evenly (a [Column]'s `spacedBy`).
+ *
+ * Added for the Toolbelt/Recents port - Key2Toolbox's ScreenScaffold.kt
+ * already has this; SystemToolbox's didn't until now, which is why the build
+ * failed on "Unresolved reference: DescriptionDivider" in RecentsScreen.kt
+ * (and would have next in ToolbeltScreen.kt, which uses it too).
+ */
+@Composable
+fun DescriptionDivider() {
+    HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
 }

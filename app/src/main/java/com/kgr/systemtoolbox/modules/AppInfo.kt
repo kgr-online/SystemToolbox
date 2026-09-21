@@ -13,8 +13,11 @@ data class AppInfo(
     val installerLabel: String
         get() = when (installerPackage) {
             "com.android.vending"          -> "Play Store"
+            "org.fdroid.fdroid"            -> "F-Droid"
+            "com.aurora.store"             -> "Aurora Store"
             null, ""                       -> "Unknown / Sideloaded"
-            "com.android.packageinstaller" -> "Package Installer"
+            "com.android.packageinstaller",
+            "com.google.android.packageinstaller" -> "Package Installer"
             "adb"                          -> "ADB"
             else                           -> installerPackage
         }

@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">System Toolbox</string>
+    <string name="accessibility_service_description">Powers Toolbelt (the bottom navigation bar) and Slim List Recents.</string>
 </resources>

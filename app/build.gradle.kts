@@ -12,7 +12,7 @@ android {
         minSdk = 28
         targetSdk = 34
         versionCode = 1
-        versionName = "1.0-beta1"
+        versionName = "2.0"
     }
 
     // signingConfigs {
@@ -82,6 +82,12 @@ dependencies {
 
     // Root shell access (https://github.com/topjohnwu/libsu)
     implementation("com.github.topjohnwu.libsu:core:5.2.2")
+
+    // Xposed / LSPosed API stub - compile-only, provided by the framework at runtime.
+    // Used by com.kgr.systemtoolbox.xposed.NavBarHookInit to hide the nav bar / bottom
+    // swipe gesture inside Pixel Launcher (com.google.android.apps.nexuslauncher) when
+    // the Toolbelt is active.
+    compileOnly("de.robv.android.xposed:api:82")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

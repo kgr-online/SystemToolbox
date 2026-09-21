@@ -2,6 +2,7 @@ package com.kgr.systemtoolbox.settings
 
 import android.content.Intent
 import android.net.Uri
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -20,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -27,6 +29,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import coil.compose.AsyncImage // swap for your existing image loader if K2TB uses a different one
+import com.kgr.systemtoolbox.service.SystemAccessibilityService
 import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -48,6 +51,7 @@ fun SettingsScreen(
     var contributors by remember { mutableStateOf<List<GitHubContributor>?>(null) }
     var contributorsError by remember { mutableStateOf<String?>(null) }
 
+    var accessibilityEnabled by remember { mutableStateOf(false) }
     var rootEnabled by remember { mutableStateOf<Boolean?>(null) } // null = still checking
 
     var backupMessage by remember { mutableStateOf<String?>(null) }
@@ -82,13 +86,14 @@ fun SettingsScreen(
     }
 
     fun refreshStatuses() {
+        accessibilityEnabled = SystemAccessibilityService.isRunning
         scope.launch {
             rootEnabled = withContext(Dispatchers.IO) { Shell.getShell().isRoot }
         }
     }
 
     // Initial check, plus re-check whenever the user returns to the app
-    // (e.g. after toggling Accessibility/Notification access in system settings)
+    // (e.g. after toggling Accessibility access in system settings)
     DisposableEffect(lifecycleOwner) {
         refreshStatuses()
         val observer = LifecycleEventObserver { _, event ->
@@ -200,6 +205,14 @@ fun SettingsScreen(
         Spacer(Modifier.height(24.dp))
 
         SectionHeader("Quick Access")
+        StatusSettingsRow(
+            title = "Accessibility Service",
+            subtitle = "Powers Toolbelt and Slim List Recents",
+            icon = Icons.Default.Accessibility,
+            enabled = accessibilityEnabled
+        ) {
+            context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        }
         RootStatusRow(rootEnabled = rootEnabled)
 
         Spacer(Modifier.height(24.dp))
@@ -313,6 +326,49 @@ private fun SectionHeader(title: String) {
         fontWeight = FontWeight.SemiBold,
         modifier = Modifier.padding(bottom = 8.dp)
     )
+}
+
+/**
+ * A clickable status row for a system permission/service with a dedicated
+ * Settings page to link to (Accessibility, Notification access, etc.) - tap
+ * anywhere on the row to jump straight to that system settings screen rather
+ * than the general Settings app.
+ *
+ * Added for the Toolbelt/Recents port - Key2Toolbox's SettingsScreen.kt
+ * already has this; SystemToolbox's didn't until now, since it previously had
+ * no accessibility-dependent feature to check the status of.
+ */
+@Composable
+private fun StatusSettingsRow(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.padding(end = 16.dp))
+        Column {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                if (enabled) "Enabled" else "Not enabled",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Medium,
+                color = if (enabled) Color(0xFF4CAF50) else Color(0xFFE57373)
+            )
+        }
+    }
 }
 
 /** Root has no dedicated system settings page to link to (varies by APatch/FolkPatch/Magisk),

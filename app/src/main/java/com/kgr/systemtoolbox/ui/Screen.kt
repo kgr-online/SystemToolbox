@@ -34,4 +34,12 @@ sealed class Screen(
         "Play Store Tagger", "Retag apps as Play Store installs",
         listOf(AccessType.ROOT)
     )
+    data object Toolbelt : Screen(
+        "Toolbelt", "Q20-style bottom bar replacing the nav bar",
+        listOf(AccessType.ACCESSIBILITY, AccessType.ROOT)
+    )
+    data object Recents : Screen(
+        "Recents", "Stock Overview or a slim overlay task list",
+        listOf(AccessType.ACCESSIBILITY, AccessType.ROOT)
+    )
 }
